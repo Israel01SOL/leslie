@@ -122,13 +122,14 @@
   .tabs button.on{color:var(--ink)}
   .tabs button.on::after{content:""; position:absolute; left:30%; right:30%; bottom:-1px; height:2px; background:var(--ink); border-radius:2px}
 
-  .view{flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden}
+  .view{flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden; position:relative}
   .hidden{display:none!important}
-  #viewLive{display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden}
-  #viewLive .stream{flex:1; overflow-y:auto; min-height:0}
-  #viewLive footer{flex-shrink:0}
-  #viewDetail{display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden}
-  #viewDetail .stream{flex:1; overflow-y:auto; min-height:0}
+  /* Bulletproof mobile scroll: footer pinned to bottom, stream scrolls in the space above */
+  #viewLive{position:relative; flex:1; min-height:0; overflow:hidden}
+  #viewLive .stream{position:absolute; top:0; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
+  #viewLive footer{position:absolute; left:0; right:0; bottom:0; z-index:5; background:var(--bg)}
+  #viewDetail{position:relative; flex:1; min-height:0; overflow:hidden}
+  #viewDetail .stream{position:absolute; top:0; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
 
   .stream{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:18px 16px 10px; display:flex; flex-direction:column; gap:14px}
   .empty{margin:auto; text-align:center; color:var(--muted); max-width:250px; padding:30px 0}
@@ -1004,8 +1005,8 @@ $("micB").onclick=()=>recordTurn("you",cfg.langB,cfg.langA,false);
 $("micAuto").onclick=()=>recordTurn("them",cfg.langA,cfg.langB,true);
 
 /* ====== Modo texto ====== */
-$("modeVoice").onclick=()=>{ inputMode="voice"; $("modeVoice").classList.add("on"); $("modeText").classList.remove("on"); $("voicePanel").classList.remove("hidden"); $("textPanel").classList.add("hidden"); };
-$("modeText").onclick=()=>{ inputMode="text"; $("modeText").classList.add("on"); $("modeVoice").classList.remove("on"); $("textPanel").classList.remove("hidden"); $("voicePanel").classList.add("hidden"); $("textInput").focus(); };
+$("modeVoice").onclick=()=>{ inputMode="voice"; $("modeVoice").classList.add("on"); $("modeText").classList.remove("on"); $("voicePanel").classList.remove("hidden"); $("textPanel").classList.add("hidden"); setTimeout(syncFooterPadding,50); };
+$("modeText").onclick=()=>{ inputMode="text"; $("modeText").classList.add("on"); $("modeVoice").classList.remove("on"); $("textPanel").classList.remove("hidden"); $("voicePanel").classList.add("hidden"); $("textInput").focus(); setTimeout(syncFooterPadding,50); };
 $("tlang").onclick=()=>{ textLang = textLang==="b" ? "a" : "b"; refreshLangUI(); };
 async function sendText(){
   const v=$("textInput").value.trim(); if(!v) return;
@@ -1572,10 +1573,27 @@ function setAppHeight(){
     app.style.height='';
     app.style.maxHeight='';
   }
+  syncFooterPadding();
+}
+/* Measure the live footer and pad the stream bottom so messages never hide behind it */
+function syncFooterPadding(){
+  if(window.innerWidth >= 768){
+    const s=$("stream"); if(s) s.style.paddingBottom="";
+    return;
+  }
+  const footer=document.querySelector("#viewLive footer");
+  const stream=$("stream");
+  if(footer && stream){
+    const fh=footer.offsetHeight || 200;
+    stream.style.paddingBottom=(fh+20)+"px";
+  }
 }
 window.addEventListener("resize", setAppHeight);
 window.addEventListener("orientationchange", ()=>setTimeout(setAppHeight,200));
 setAppHeight();
+// re-measure footer after layout settles and whenever input mode changes
+setTimeout(syncFooterPadding, 100);
+setTimeout(syncFooterPadding, 500);
 
 window.addEventListener("resize", applyLayout);
 applyLayout();
