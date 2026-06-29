@@ -53,7 +53,7 @@
 
     .sidebar .search{padding:12px 14px; border-bottom:1px solid var(--line-2)}
     .sidebar.collapsed .search{display:none}
-    .sidebar .hlist{flex:1; overflow-y:auto; padding:8px 8px}
+    .sidebar .hlist{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; min-height:0; padding:8px 8px}
     .sidebar.collapsed .hlist{padding:8px 5px; align-items:center; display:flex; flex-direction:column; gap:4px}
     .sidebar .hcard{border-radius:10px; margin-bottom:4px; padding:10px 12px}
     .sidebar.collapsed .hcard{width:38px; height:38px; padding:0; display:flex; align-items:center; justify-content:center; margin-bottom:0}
@@ -130,6 +130,7 @@
   #viewLive footer{position:absolute; left:0; right:0; bottom:0; z-index:5; background:var(--bg)}
   #viewDetail{position:relative; flex:1; min-height:0; overflow:hidden}
   #viewDetail .stream{position:absolute; top:0; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
+  #viewDetail .cont-bar, #viewDetail .cont-live{position:absolute; left:0; right:0; bottom:0; z-index:5; background:var(--bg)}
 
   .stream{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:18px 16px 10px; display:flex; flex-direction:column; gap:14px}
   .empty{margin:auto; text-align:center; color:var(--muted); max-width:250px; padding:30px 0}
@@ -187,9 +188,7 @@
   .dtitle-edit button{background:var(--accent2); border:none; color:#0a0a0a; border-radius:8px; width:32px; height:32px; cursor:pointer; font-size:15px; flex-shrink:0}
   .detail-head .del{flex-shrink:0; background:none; border:1px solid var(--line); color:var(--err); border-radius:8px; padding:6px 10px; font-size:11px; font-family:inherit; cursor:pointer}
 
-  /* ===== Detail view scroll fix ===== */
-  #viewDetail{display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden}
-  #viewDetail .stream{flex:1; overflow-y:auto; min-height:0}
+  /* ===== Detail view continue bar ===== */
   .cont-bar{display:flex; gap:8px; padding:12px 16px calc(14px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--bg); flex-shrink:0}
   .cont-live{flex-shrink:0}
   .cont-bar.hidden{display:none}
@@ -258,6 +257,9 @@
   .search{padding:14px 16px; border-bottom:1px solid var(--line-2)}
   .search input{width:100%; background:var(--surface); border:1px solid var(--line); color:var(--ink); border-radius:11px; padding:11px 13px 11px 38px; font-family:inherit; font-size:13px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236f6f6f' stroke-width='2' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:13px center}
   .search input::placeholder{color:var(--muted)}
+  #viewHist{position:relative; flex:1; min-height:0; overflow:hidden; display:flex; flex-direction:column}
+  #viewHist .search{flex-shrink:0}
+  #viewHist .hlist{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; min-height:0; padding:12px 16px 16px; display:flex; flex-direction:column; gap:10px}
   .hlist{flex:1; overflow-y:auto; padding:12px 16px 16px; display:flex; flex-direction:column; gap:10px}
   .hcard{background:var(--surface); border:1px solid var(--line); border-radius:13px; padding:15px; cursor:pointer; transition:.13s; position:relative}
   .hcard:hover{border-color:#3a3a3a}
@@ -1205,6 +1207,7 @@ async function openConv(c){
       ds.appendChild(bubbleEl(m.lado, m.texto_original, m.texto_traducido, (LANGS[tgtCode]||LANGS.en).tts, tgtCode));
     });
     if(!data || data.length===0) ds.innerHTML='<div class="hmuted">Esta conversación no tiene mensajes.</div>';
+    setTimeout(syncFooterPadding, 60);
   }catch(e){ ds.innerHTML='<div class="hmuted">No se pudieron cargar los mensajes.</div>'; }
 }
 
@@ -1253,6 +1256,7 @@ $("contBtn").onclick=()=>{
   $("contBar").classList.add("hidden");
   $("contLive").classList.add("show");
   currentConvId=openConvId; // messages go into this conv
+  setTimeout(syncFooterPadding, 60);
   toast("Puedes seguir hablando o escribiendo");
 };
 // continue mode: voice
@@ -1579,6 +1583,7 @@ function setAppHeight(){
 function syncFooterPadding(){
   if(window.innerWidth >= 768){
     const s=$("stream"); if(s) s.style.paddingBottom="";
+    const ds=$("dStream"); if(ds) ds.style.paddingBottom="";
     return;
   }
   const footer=document.querySelector("#viewLive footer");
@@ -1586,6 +1591,15 @@ function syncFooterPadding(){
   if(footer && stream){
     const fh=footer.offsetHeight || 200;
     stream.style.paddingBottom=(fh+20)+"px";
+  }
+  // detail view: pad below whichever bar is showing (cont-bar or cont-live)
+  const ds=$("dStream");
+  if(ds){
+    const cl=$("contLive"), cb=$("contBar");
+    let bh=0;
+    if(cl && cl.classList.contains("show")) bh=cl.offsetHeight;
+    else if(cb && !cb.classList.contains("hidden")) bh=cb.offsetHeight;
+    ds.style.paddingBottom=(bh+20)+"px";
   }
 }
 window.addEventListener("resize", setAppHeight);
