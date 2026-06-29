@@ -677,50 +677,59 @@ let recCanceled = false;
 
 function startListening(sttLocale, onInterim){
   return new Promise((resolve,reject)=>{
-    const rec=makeRecognition(); if(!rec){ reject(new Error("no-stt")); return; }
-    rec.lang=sttLocale; rec.interimResults=true; rec.maxAlternatives=1; rec.continuous=true;
+    if(!hasSTT()){ reject(new Error("no-stt")); return; }
     let done=false; let lastResultTs=null;
+    let committed="";          // text from completed phrases (already final)
+    let livePhrase="";         // current phrase being spoken
     const silenceMs=Math.max(1000,(cfg.silence||1.5)*1000);
-    let watch=null;
-    // Track finalized segments by their index so we never add the same one twice.
-    const finals={};            // index -> finalized transcript
-    function cleanup(){ if(watch){ clearInterval(watch); watch=null; } }
-    function buildText(){
-      // finalized parts (sorted by index) + nothing else
-      const keys=Object.keys(finals).map(Number).sort((a,b)=>a-b);
-      return keys.map(k=>finals[k]).join(" ").trim();
-    }
-    function finalize(){ if(done) return; done=true; cleanup(); try{ rec.stop(); }catch(e){} }
-    function abort(){ if(done) return; done=true; cleanup(); try{ rec.abort(); }catch(e){} }
+    let watch=null; let rec=null; let manualStop=false;
 
-    rec.onresult=e=>{
-      let interim="";
-      for(let i=0; i<e.results.length; i++){
-        const res=e.results[i];
-        const txt=res[0].transcript;
-        if(res.isFinal){
-          finals[i]=txt.trim();   // store/overwrite by index — no duplication
+    function cleanup(){ if(watch){ clearInterval(watch); watch=null; } }
+    function fullText(){ return (committed+" "+livePhrase).replace(/\s+/g," ").trim(); }
+    function finishAll(){ if(done) return; done=true; manualStop=true; cleanup(); try{ rec&&rec.stop(); }catch(e){} resolveNow(); }
+    function abort(){ if(done) return; done=true; manualStop=true; cleanup(); try{ rec&&rec.abort(); }catch(e){} resolveNow(); }
+    let resolved=false;
+    function resolveNow(){ if(resolved) return; resolved=true; resolve(fullText()); }
+
+    function makeRec(){
+      const r=makeRecognition();
+      r.lang=sttLocale; r.interimResults=true; r.maxAlternatives=1; r.continuous=false;
+      r.onresult=e=>{
+        // continuous=false: e.results holds ONE phrase. Take the LAST result's
+        // transcript as the current phrase — never accumulate across events.
+        let phrase="";
+        for(let i=0;i<e.results.length;i++){ phrase = e.results[i][0].transcript; }
+        livePhrase=phrase.trim();
+        lastResultTs=Date.now();
+        if(onInterim) onInterim(fullText());
+      };
+      r.onerror=ev=>{
+        const err=ev.error||"stt-error";
+        if(err==="no-speech"||err==="aborted"){ /* handled in onend */ }
+        else if(err==="not-allowed"||err==="service-not-allowed"){ done=true; cleanup(); reject(new Error(err)); }
+      };
+      r.onend=()=>{
+        // commit the phrase we just got
+        if(livePhrase){ committed=(committed+" "+livePhrase).replace(/\s+/g," ").trim(); livePhrase=""; }
+        if(onInterim) onInterim(fullText());
+        // if user didn't stop and there was speech recently, restart for the next phrase
+        if(!manualStop && !done){
+          try{ rec.start(); }catch(e){ /* will be caught by watchdog */ }
         } else {
-          interim += txt;
+          resolveNow();
         }
-      }
-      const finalPart=buildText();
-      const shown=(finalPart + (interim?" "+interim:"")).trim();
-      lastResultTs=Date.now();
-      if(onInterim) onInterim(shown);
-    };
-    rec.onerror=e=>{
-      const err=e.error||"stt-error";
-      if(err==="no-speech"||err==="aborted"){ /* resolve in onend */ }
-      else { cleanup(); reject(new Error(err)); }
-    };
-    rec.onend=()=>{ cleanup(); resolve(buildText()); };
+      };
+      return r;
+    }
+
+    rec=makeRec();
     try{ rec.start(); }catch(e){ reject(e); return; }
 
+    // Silence watchdog: stop everything after silence following real speech
     watch=setInterval(()=>{
-      if(lastResultTs && (Date.now()-lastResultTs) > silenceMs) finalize();
+      if(lastResultTs && (Date.now()-lastResultTs) > silenceMs) finishAll();
     },250);
-    activeRec={ stop:finalize, cancel:abort };
+    activeRec={ stop:finishAll, cancel:abort };
   });
 }
 
