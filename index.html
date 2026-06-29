@@ -129,8 +129,8 @@
   #viewLive .stream{position:absolute; top:0; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
   #viewLive footer{position:absolute; left:0; right:0; bottom:0; z-index:5; background:var(--bg)}
   #viewDetail{position:relative; flex:1; min-height:0; overflow:hidden}
-  #viewDetail .detail-head{position:absolute; top:0; left:0; right:0; z-index:6; background:var(--bg)}
-  #viewDetail .stream{position:absolute; top:56px; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
+  #viewDetail .detail-head{position:absolute; top:0; left:0; right:0; z-index:6; background:var(--bg); min-height:64px; border-bottom:1px solid var(--line)}
+  #viewDetail .stream{position:absolute; top:64px; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
   #viewDetail .cont-bar, #viewDetail .cont-live{position:absolute; left:0; right:0; bottom:0; z-index:5; background:var(--bg)}
 
   .stream{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:18px 16px 10px; display:flex; flex-direction:column; gap:14px}
@@ -1107,7 +1107,17 @@ function bubbleEl(side,o,t,ttsLocale,tgtCode){
   wrap.innerHTML=`<div class="who">${who}</div><div class="bubble"><div class="orig"></div><div class="trans"></div></div>`;
   wrap.querySelector(".orig").textContent=o;
   wrap.querySelector(".trans").textContent=t;
-  wrap.querySelector(".bubble").appendChild(makeTTSCtrl(t,ttsLocale,tgtCode));
+  const ctrl=makeTTSCtrl(t,ttsLocale,tgtCode);
+  const bubble=wrap.querySelector(".bubble");
+  bubble.appendChild(ctrl);
+  // Tap anywhere on the bubble (except the control buttons) toggles play/pause
+  bubble.style.cursor="pointer";
+  bubble.addEventListener("click",e=>{
+    if(e.target.closest(".tts-ctrl")) return; // let the buttons handle their own clicks
+    const state=ctrl.dataset.state;
+    if(state==="idle" || state==="paused") ctrl.querySelector(".tts-btn-play").click();
+    else if(state==="playing") ctrl.querySelector(".tts-btn-pause").click();
+  });
   return wrap;
 }
 function renderLiveTurn(side,o,t,ttsLocale,tgtCode){
@@ -1596,9 +1606,9 @@ function syncFooterPadding(){
   // detail view: pad below whichever bar is showing (cont-bar or cont-live)
   const ds=$("dStream");
   if(ds){
-    // top: clear the detail header
+    // top: clear the detail header (measured, with 64px CSS baseline)
     const dh=document.querySelector("#viewDetail .detail-head");
-    if(dh) ds.style.top=dh.offsetHeight+"px";
+    if(dh){ const hh=dh.offsetHeight; if(hh>0) ds.style.top=hh+"px"; }
     // bottom: clear the continue/borrar bar
     const cl=$("contLive"), cb=$("contBar");
     let bh=0;
