@@ -1029,13 +1029,7 @@ $("sendBtn").onclick=sendText;
 $("textInput").addEventListener("keydown",e=>{ if(e.key==="Enter") sendText(); });
 
 /* ====== Nueva conversación ====== */
-$("newConv").onclick=()=>{
-  liveTurns=[]; currentConvId=null;
-  $("stream").innerHTML=""; $("stream").appendChild($("empty")); $("empty").style.display="block";
-  setCount(); show("viewLive");
-  if(!isDesktop()){ $("tabLive").classList.add("on"); $("tabHist").classList.remove("on"); }
-  toast("Conversación nueva iniciada.");
-};
+$("newConv").onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); try{ startNewConversation(); }catch(err){ toast("Error: "+(err&&err.message||err)); } };
 
 /* ====== Motor (Gratis / IA) ====== */
 function setEngine(e){ cfg.engine=e; saveCfgStore(); refreshLangUI(); if(e==="ai"&&!cfg.key) toast("Recuerda poner tu API Key de OpenRouter en Ajustes."); }
@@ -1540,11 +1534,20 @@ function renderSidebar(filter){
   });
 }
 $("searchSide").addEventListener("input",e=>renderSidebar(e.target.value));
-$("newConvSide").onclick=()=>{
-  liveTurns=[]; currentConvId=null;
-  $("stream").innerHTML=""; $("stream").appendChild($("empty")); $("empty").style.display="block";
-  setCount(); show("viewLive"); toast("Conversación nueva iniciada.");
-};
+function startNewConversation(){
+  liveTurns=[]; currentConvId=null; openConvId=null;
+  const stream=$("stream");
+  if(stream){
+    stream.innerHTML='<div class="empty" id="empty"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div><h3>Conversación nueva</h3><p>Habla por voz o escribe. Se traduce, lo dice en voz alta y se guarda hasta que inicies otra.</p></div>';
+  }
+  setCount();
+  show("viewLive");
+  if(!isDesktop()){ $("tabLive").classList.add("on"); $("tabHist").classList.remove("on"); }
+  if($("contBar")) $("contBar").classList.remove("hidden");
+  if($("contLive")) $("contLive").classList.remove("show");
+  toast("Conversación nueva iniciada.");
+}
+$("newConvSide").onclick=(e)=>{ e.preventDefault(); e.stopPropagation(); try{ startNewConversation(); }catch(err){ toast("Error: "+(err&&err.message||err)); } };
 
 // On desktop, after saving a conversation go back to live and refresh sidebar
 const _origOpenConv = openConv;
@@ -1570,19 +1573,7 @@ async function persistMessageSide(side,o,t,srcCode){
 }
 window.persistMessage = persistMessageSide;
 
-// After delete, refresh sidebar
-const _origDel = $("delConv").onclick;
-$("delConv").onclick = async function(){
-  if(!openConvId||!sb) return;
-  if(!confirm("¿Borrar esta conversación? No se puede deshacer.")) return;
-  try{
-    await sb.from("pn_mensajes").delete().eq("conversacion_id",openConvId);
-    await sb.from("pn_conversaciones").delete().eq("id",openConvId);
-    toast("Conversación borrada.");
-    if(isDesktop()){ await loadSidebarHistory(); show("viewLive"); }
-    else { await loadHistory(); show("viewHist"); }
-  }catch(e){ toast("No se pudo borrar."); }
-};
+// (delete is handled by deleteOpenConv via contDelBtn — no override needed)
 
 /* Guaranteed mobile height fix: set real innerHeight (Chrome Android dvh can be unreliable) */
 function setAppHeight(){
