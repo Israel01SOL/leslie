@@ -129,7 +129,8 @@
   #viewLive .stream{position:absolute; top:0; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
   #viewLive footer{position:absolute; left:0; right:0; bottom:0; z-index:5; background:var(--bg)}
   #viewDetail{position:relative; flex:1; min-height:0; overflow:hidden}
-  #viewDetail .stream{position:absolute; top:0; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
+  #viewDetail .detail-head{position:absolute; top:0; left:0; right:0; z-index:6; background:var(--bg)}
+  #viewDetail .stream{position:absolute; top:56px; left:0; right:0; bottom:0; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain}
   #viewDetail .cont-bar, #viewDetail .cont-live{position:absolute; left:0; right:0; bottom:0; z-index:5; background:var(--bg)}
 
   .stream{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:18px 16px 10px; display:flex; flex-direction:column; gap:14px}
@@ -1595,6 +1596,10 @@ function syncFooterPadding(){
   // detail view: pad below whichever bar is showing (cont-bar or cont-live)
   const ds=$("dStream");
   if(ds){
+    // top: clear the detail header
+    const dh=document.querySelector("#viewDetail .detail-head");
+    if(dh) ds.style.top=dh.offsetHeight+"px";
+    // bottom: clear the continue/borrar bar
     const cl=$("contLive"), cb=$("contBar");
     let bh=0;
     if(cl && cl.classList.contains("show")) bh=cl.offsetHeight;
