@@ -18,8 +18,10 @@
 
   /* ===== MOBILE: single column ===== */
   .app{width:100%; max-width:430px; height:100dvh; max-height:100dvh; background:var(--bg); display:flex; flex-direction:column; position:relative; overflow:hidden}
-  .app > header, .app > .meta-row, .app > .banner, .app > .tabs{flex-shrink:0}
-  .app > .view{flex:1; min-height:0; overflow:hidden}
+  /* .main is the real flex container on mobile (header/tabs/views live inside it) */
+  .main{flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; position:relative}
+  .main > header, .main > .meta-row, .main > .banner, .main > .tabs{flex-shrink:0}
+  .main > .view{flex:1; min-height:0; overflow:hidden}
 
   /* ===== DESKTOP (≥768px): two-column layout ===== */
   @media(min-width:768px){
@@ -125,6 +127,8 @@
   #viewLive{display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden}
   #viewLive .stream{flex:1; overflow-y:auto; min-height:0}
   #viewLive footer{flex-shrink:0}
+  #viewDetail{display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden}
+  #viewDetail .stream{flex:1; overflow-y:auto; min-height:0}
 
   .stream{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:18px 16px 10px; display:flex; flex-direction:column; gap:14px}
   .empty{margin:auto; text-align:center; color:var(--muted); max-width:250px; padding:30px 0}
@@ -1557,10 +1561,9 @@ $("delConv").onclick = async function(){
   }catch(e){ toast("No se pudo borrar."); }
 };
 
-/* Guaranteed mobile height fix: set --apph to real innerHeight (Chrome Android dvh can be unreliable) */
+/* Guaranteed mobile height fix: set real innerHeight (Chrome Android dvh can be unreliable) */
 function setAppHeight(){
   const h=window.innerHeight;
-  document.documentElement.style.setProperty('--apph', h+'px');
   const app=document.querySelector('.app');
   if(app && window.innerWidth < 768){
     app.style.height=h+'px';
